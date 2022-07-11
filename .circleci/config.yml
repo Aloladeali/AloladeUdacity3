@@ -35,7 +35,7 @@ jobs:
           paths: [backend/node_modules]
           key: backend-deps
   test-frontend:
-    docker:
+      docker:
       - image: circleci/node:13.8.0
     steps:
       - checkout
@@ -49,7 +49,7 @@ jobs:
               npm run test
                 
   test-backend:
-    docker:
+      docker:
       - image: circleci/node:13.8.0
     steps:
       - checkout
