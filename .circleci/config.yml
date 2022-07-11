@@ -1,14 +1,5 @@
 version: 2.1   
 commands:
-  install_ansible:
-  description: Install Ansible
-  steps:
-    - run:
-        name: Install Ansible
-        command: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip
-          python3 -m pip install --user ansible
   destroy-environment:
     description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
     parameters:
@@ -125,9 +116,9 @@ jobs:
   deploy-infrastructure:
     docker:
       - image: cimg/base:stable
+    steps:
       # Checkout code from git
       - checkout
-      - install_ansible
       - run:
           name: Ensure frontend infrastructure exist
           command: |
@@ -155,7 +146,7 @@ jobs:
             cat .circleci/ansible/inventory.txt
 
       - persist_to_workspace:
-          root: ~
+          root: ~ \
           paths:
             - project/.circleci/ansible/inventory.txt
       # Here's where you will add some code to rollback on failure
@@ -172,4 +163,6 @@ workflows:
           requires: [build-frontend]
       - scan-backend:
           requires: [build-backend]
-      - deploy-infrastructure
+      - deploy-infrastructure:
+          requires: [test-frontend, test-backend, scan-frontend, scan-backend]
+            
