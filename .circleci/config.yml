@@ -182,6 +182,10 @@ jobs:
             apk add --update --no-cache tar gzip ansible
             pip install awscli
       - run:
+          name: Install openssh
+          command: |
+            apk add --update openssh-server
+      - run:
           name: View content of inventory.txt
           command: cat .circleci/ansible/inventory.txt    
       - run:
