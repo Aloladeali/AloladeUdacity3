@@ -28,15 +28,7 @@ commands:
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             sudo ./aws/install
-  install_ansible:
-    description: Install Ansible
-    steps:
-      - run:
-          name: Install Ansible
-          command: |
-            sudo apt update
-            sudo apt install -y python3 python3-pip
-            python3 -m pip install --user ansible
+
 jobs:
   build-frontend:
     docker:
@@ -176,7 +168,6 @@ jobs:
     steps:
       # Checkout code from git
       - checkout
-      - install_ansible
       # Add ssh keys with fingerprint
       - add_ssh_keys:
           fingerprints: ["b2:60:aa:d0:f8:bb:21:ca:bd:91:27:a4:73:bb:72:b0"]
