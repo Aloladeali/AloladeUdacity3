@@ -1,4 +1,4 @@
-version: 2.1   
+version: 2.1  
 commands:
   destroy-environment:
     description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
@@ -19,6 +19,23 @@ commands:
 
             # Delete backend stack
             aws cloudformation delete-stack --stack-name udapeople-backend-<< parameters.Workflow_ID >>
+  revert-migrations:
+    description: Revert the last migration if successfully run in the current workflow.
+    parameters:
+      # Add parameter here
+      workflow_ID:
+        type: string
+        default: ${CIRCLE_WORKFLOW_ID:0:7}    
+    steps:
+      - run:
+          name: Revert migrations
+          # Add when this will run
+          when: on_fail
+          command: |
+              cd ~/project/backend
+              npm install
+              npm run migrations:revert
+              
   install_awscli:
     description: Install AWS CLI v2
     steps:
@@ -28,6 +45,26 @@ commands:
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             sudo ./aws/install
+
+  install_ansible:
+    description: Install Ansible
+    steps:
+      - run:
+          name: Install Ansible
+          command: |
+            sudo apt update
+            sudo apt install software-properties-common -y
+            sudo add-apt-repository --yes --update ppa:ansible/ansible
+            sudo apt intall ansible -y
+
+  install-nodejs:
+    description: install-node.js.13
+    steps:
+      - run:
+          name: install-node.js.13
+          command: |
+            curl fsSL http://deb.nodesource.com/setup_13.x | sudo - bash -
+            sudo apt install -y nodejs
 
 jobs:
   build-frontend:
@@ -221,8 +258,80 @@ jobs:
 
      # Here's where you will add some code to rollback on failure
       - destroy-environment
+      - revert-migrations
+
+  deploy-frontend:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_awscli
+      - install-nodejs
+      - run:
+          name: Install dependencies
+          command: |
+            cd frontend
+            npm install
+      - run:
+          name: Get backend url
+          command: |
+            BACKEND_PUBLIC_IP=$(aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --output text)
+            echo "API_URL=http://${BACKEND_PUBLIC_IP}:3030" >> frontend/.env
+            cat frontend/.env
+      - run:
+          name: Deploy frontend objects
+          command: |
+            cd frontend
+            npm install
+            npm run build
+            tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist
+            aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+            echo "workfkow=$CIRCLE_WORKFLOW_ID:0:7"
+      - destroy-environment
+      - revert-migrations
+ deploy-backend:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - install_awscli      
+      - install_ansible
+      - install-nodejs
+      - add_ssh_keys:
+          fingerprints: ["5e:8b:bc:bb:1b:08:ab:90:53:83:06:d4:18:a7:b2:b9"]          
+      - attach_workspace:
+          at: ~/
+      - restore_cache:
+          keys: [backend-deps]
+      - run:
+          name: Install dependencies
+          command: |
+            cd backend
+            npm install
+      - run:
+         name: Package Backend
+         command: |
+            cd backend
+            npm run build
+            tar -cf artifact.tar
+            cd ..
+            cp backend/artifact.tar .circleci/ansible/roles/deploy/files   
+      - run:
+          name: Deploy backend
+          command: |
+            export TYPEORM_MIGRATIONS_DIR=./migrations
+            export TYPEORM_ENTITIES=./modules/domain/**/*.entity{.ts,.js}             
+            export TYPEORM_MIGRATIONS=./migrations/*.ts
+            cd .circleci/ansible
+            cat inventory.txt
+            ansible-playbook -i inventory.txt deploy-backend.yml       
+      - destroy-environment
+      - revert-migrations
 workflows:
-  defaultt:
+  default:
     jobs:
       - build-frontend
       - build-backend
@@ -240,4 +349,8 @@ workflows:
           requires: [deploy-infrastructure]
       - run-migrations:
           requires: [configure-infrastructure]
+      - deploy-frontend:
+          requires: [run-migrations]
+      - deploy-backend:
+          requires: [run-migrations]
             
