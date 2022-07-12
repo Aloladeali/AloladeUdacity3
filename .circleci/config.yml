@@ -292,7 +292,7 @@ jobs:
             echo "workfkow=$CIRCLE_WORKFLOW_ID:0:7"
       - destroy-environment
       - revert-migrations
- deploy-backend:
+  deploy-backend:
     docker:
       - image: cimg/base:stable
     steps:
