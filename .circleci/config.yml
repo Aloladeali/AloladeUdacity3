@@ -236,7 +236,7 @@ jobs:
   run-migrations:
     docker:
       # Docker image here that supports NodeJS
-      - image: circleci/node:13.8.0
+      - image: cimg/node:13.8.0
     steps:
       # Checkout code from git
       - checkout
@@ -246,7 +246,10 @@ jobs:
             # Your code here
             cd backend
             npm install
+            npm audit fix --audit-level=critical --force
             npm run migrations > migrations_dump.txt
+            cat migrations_dumps.txt
+            
       - run:
           name: Send migration results to memstash
           command: |
@@ -301,7 +304,7 @@ jobs:
       - install_ansible
       - install-nodejs
       - add_ssh_keys:
-          fingerprints: ["5e:8b:bc:bb:1b:08:ab:90:53:83:06:d4:18:a7:b2:b9"]          
+          fingerprints: ["b2:60:aa:d0:f8:bb:21:ca:bd:91:27:a4:73:bb:72:b0"]          
       - attach_workspace:
           at: ~/
       - restore_cache:
