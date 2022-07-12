@@ -148,11 +148,10 @@ jobs:
       - run:
           name: Add back-end ip to ansible inventory
           command: |
-            BACKEND_PUBLIC_IP=$(aws ec2 describe-instances 
-              --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" 
-              --query 'Reservations[*].Instances[*].PublicIpAddress' 
-              --output text)
-            echo $BACKEND_PUBLIC_IP >> .circleci/ansible/inventory.txt
+            aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+            --query "Reservations[*].Instances[*].PublicIpAddress" \
+            --output text >> .circleci/ansible/inventory.txt
             cat .circleci/ansible/inventory.txt
 
       - persist_to_workspace:
@@ -160,6 +159,43 @@ jobs:
           paths:
             - project/.circleci/ansible/inventory.txt
       # Here's where you will add some code to rollback on failure
+      - destroy-environment
+  configure-infrastructure:
+    docker:
+      # Docker image here that supports Ansible
+      - image: python:3.7-alpine3.11
+    steps:
+      # Checkout code from git
+      - checkout
+      # Add ssh keys with fingerprint
+      - add_ssh_keys:
+          fingerprints: ["b2:60:aa:d0:f8:bb:21:ca:bd:91:27:a4:73:bb:72:b0"]
+      # attach workspace
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install dependencies 
+          command: |
+            sudo apt update
+            sudo apt install -y python3 python3-pip
+            python3 -m pip install --user ansible
+      - run:
+          name: Install tar gzip
+          command: |
+            apk add --update --no-cache tar gzip ansible
+            pip install awscli
+      - run:
+          name: View content of inventory.txt
+          command: cat .circleci/ansible/inventory.txt    
+      - run:
+          name: Configure server
+          command: |
+            # Your code here
+            cd.circleci/ansible
+            ansible-playbook -i inventory.txt configure-server.yml      
+      # Here's where you will add some code to rollback on failure
+      - destroy-environment:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 workflows:
   default:
     jobs:
